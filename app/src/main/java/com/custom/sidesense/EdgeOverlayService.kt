@@ -127,9 +127,14 @@ class EdgeOverlayService : Service() {
             onClick = { app -> 
                 hide()
                 if (ShizukuHelper.hasPermission()) {
-                    // Panggil fungsi dengan 2 parameter: component & package
-                    Thread { ShizukuHelper.launchFloating(app.component, app.pkg) }.start()
-                    Toast.makeText(this, "Membuka Floating...", Toast.LENGTH_SHORT).show()
+                    // Panggil pake Package Name (app.pkg)
+                    Thread { 
+                        val result = ShizukuHelper.launchFloating(app.pkg)
+                        // Kalau ada tulisan ERR, berarti gagal. Tampilkan ke layar!
+                        if (result.startsWith("ERR")) {
+                            runOnUiThread { Toast.makeText(this@EdgeOverlayService, result, Toast.LENGTH_LONG).show() }
+                        }
+                    }.start()
                 } else {
                     packageManager.getLaunchIntentForPackage(app.pkg)?.let { li ->
                         li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
