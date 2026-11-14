@@ -8,7 +8,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -29,6 +31,7 @@ class EdgeOverlayService : Service() {
     private var edgeView: View? = null
     private var panelView: View? = null
     private var backdropView: View? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onBind(i: Intent?): IBinder? = null
     override fun onCreate() {
@@ -127,12 +130,13 @@ class EdgeOverlayService : Service() {
             onClick = { app -> 
                 hide()
                 if (ShizukuHelper.hasPermission()) {
-                    // Panggil pake Package Name (app.pkg)
                     Thread { 
                         val result = ShizukuHelper.launchFloating(app.pkg)
-                        // Kalau ada tulisan ERR, berarti gagal. Tampilkan ke layar!
                         if (result.startsWith("ERR")) {
-                            runOnUiThread { Toast.makeText(this@EdgeOverlayService, result, Toast.LENGTH_LONG).show() }
+                            // Pake Handler buat nampilin Toast dari dalam Thread
+                            mainHandler.post { 
+                                Toast.makeText(this@EdgeOverlayService, result, Toast.LENGTH_LONG).show() 
+                            }
                         }
                     }.start()
                 } else {
