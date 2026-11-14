@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -20,6 +21,7 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlin.math.abs
 
 class EdgeOverlayService : Service() {
     companion object {
@@ -30,6 +32,7 @@ class EdgeOverlayService : Service() {
     private var edgeView: View? = null
     private var panelView: View? = null
     private var backdropView: View? = null
+    private var closeBtnView: View? = null
 
     override fun onBind(i: Intent?): IBinder? = null
     override fun onCreate() {
@@ -93,9 +96,8 @@ class EdgeOverlayService : Service() {
         val screenWidth = dm.widthPixels
         val screenHeight = dm.heightPixels
 
-        // 1. Backdrop
         val backdrop = View(this).apply {
-            setBackgroundColor(0x22000000) // Transparan gelap tipis
+            setBackgroundColor(0x22000000)
             setOnClickListener { hide() }
         }
         val backdropParams = WindowManager.LayoutParams(
@@ -109,51 +111,53 @@ class EdgeOverlayService : Service() {
         )
         try { wm.addView(backdrop, backdropParams); backdropView = backdrop } catch (_: Throwable) {}
 
-        // 2. Panel View
         val v = LayoutInflater.from(this).inflate(R.layout.panel, null)
-        v.findViewById<TextView>(R.id.panel_title).text = "Side Sense"
         v.findViewById<View>(R.id.panel_close).setOnClickListener { hide() }
         
-        // Quick Tools
         v.findViewById<Button>(R.id.btn_power).setOnClickListener {
             hide()
             if (ShizukuHelper.hasPermission()) Thread { ShizukuHelper.screenOff() }.start()
-            else Toast.makeText(this, "Butuh Shizuku", Toast.LENGTH_SHORT).show()
         }
         v.findViewById<Button>(R.id.btn_screenshot).setOnClickListener {
             hide()
             if (ShizukuHelper.hasPermission()) Thread { ShizukuHelper.takeScreenshot() }.start()
-            else Toast.makeText(this, "Butuh Shizuku", Toast.LENGTH_SHORT).show()
         }
 
-        // Setup RecyclerView Grid (4 kolom)
         val recycler = v.findViewById<RecyclerView>(R.id.recycler_apps)
         recycler.layoutManager = GridLayoutManager(this, 4)
         val apps = AppRepo.getLaunchableApps(this)
         
         recycler.adapter = AppAdapter(apps, 
-            onClick = { app ->
+            onClick = { app -> 
+                hide()
+                if (ShizukuHelper.hasPermission()) {
+                    Thread { ShizukuHelper.launchFloating(app.component) }.start()
+                    Toast.makeText(this, "Membuka Floating...", Toast.LENGTH_SHORT).show()
+                    // Munculin tombol Close melayang
+                    showCloseButton(app.pkg)
+                } else {
+                    packageManager.getLaunchIntentForPackage(app.pkg)?.let { li ->
+                        li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        try { startActivity(li) } catch (_: Throwable) {}
+                    }
+                }
+            },
+            onLongClick = { app -> 
                 hide()
                 packageManager.getLaunchIntentForPackage(app.pkg)?.let { li ->
                     li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     try { startActivity(li) } catch (_: Throwable) {}
                 }
-            },
-            onLongClick = { app ->
-                hide()
-                if (ShizukuHelper.hasPermission()) {
-                    val launchIntent = packageManager.getLaunchIntentForPackage(app.pkg)
-                    val component = launchIntent?.component?.flattenToString() ?: app.pkg
-                    Thread { ShizukuHelper.launchFloating(component) }.start()
-                    Toast.makeText(this, "Membuka floating...", Toast.LENGTH_SHORT).show()
-                }
             }
         )
 
-        // Setup Panel Params dengan Blur
+        val initWidth = (screenWidth * 0.75f).toInt()
+        val initHeight = (screenHeight * 0.65f).toInt()
+        val startX = screenWidth - initWidth - dp(16)
+        val startY = (screenHeight - initHeight) / 2
+
         val panelParams = WindowManager.LayoutParams(
-            (screenWidth * 0.75f).toInt(),
-            (screenHeight * 0.65f).toInt(),
+            initWidth, initHeight,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -161,17 +165,14 @@ class EdgeOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply { 
             gravity = Gravity.TOP or Gravity.START
-            x = screenWidth - width + dp(100) // Mulai dari luar layar (kanan)
-            y = (screenHeight - height) / 2
-            
-            // EFEK KACA BLUR (Khas Sony) - Butuh Android 12+
+            x = startX
+            y = startY
             if (Build.VERSION.SDK_INT >= 31) {
                 setBlurBehindRadius(dp(25))
                 flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
             }
         }
 
-        // Fitur Geser (Drag)
         val header = v.findViewById<View>(R.id.panel_header)
         var initX = 0
         var initY = 0
@@ -197,7 +198,6 @@ class EdgeOverlayService : Service() {
             }
         }
 
-        // Fitur Resize
         val resize = v.findViewById<View>(R.id.resize_handle)
         var initW = 0
         var initH = 0
@@ -225,25 +225,81 @@ class EdgeOverlayService : Service() {
 
         try { 
             wm.addView(v, panelParams); panelView = v 
-            
-            // Animasi Slide-in dari kanan
             v.alpha = 0f
-            v.translationX = panelParams.width.toFloat()
-            v.animate()
-                .alpha(1f)
-                .translationX(0f)
-                .setDuration(250)
-                .start()
-                
+            v.animate().alpha(1f).setDuration(200).start()
         } catch (_: Throwable) {}
+    }
+
+    private fun showCloseButton(pkg: String) {
+        hideCloseButton()
+        val btn = TextView(this).apply {
+            text = "✕"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 22f
+            gravity = Gravity.CENTER
+            
+            val bg = GradientDrawable()
+            bg.shape = GradientDrawable.OVAL
+            bg.setColor(0xCCFF0000.toInt())
+            bg.setStroke(dp(2), 0xFFFFFFFF.toInt())
+            background = bg
+        }
+        
+        val params = WindowManager.LayoutParams(
+            dp(50), dp(50),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = dp(20)
+            y = dp(100)
+        }
+        
+        var initX = 0
+        var initY = 0
+        var touchX = 0f
+        var touchY = 0f
+        
+        btn.setOnTouchListener { v, e ->
+            when(e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initX = params.x
+                    initY = params.y
+                    touchX = e.rawX
+                    touchY = e.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    params.x = initX + (e.rawX - touchX).toInt()
+                    params.y = initY + (e.rawY - touchY).toInt()
+                    try { wm.updateViewLayout(v, params) } catch (_: Throwable) {}
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    // Cek apakah cuma di-tap, bukan digeser
+                    if (abs(e.rawX - touchX) < dp(10) && abs(e.rawY - touchY) < dp(10)) {
+                        hideCloseButton()
+                        Thread { ShizukuHelper.execShell("am force-stop $pkg") }.start()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        try { wm.addView(btn, params); closeBtnView = btn } catch (_: Throwable) {}
+    }
+
+    private fun hideCloseButton() {
+        closeBtnView?.let { try { wm.removeView(it) } catch (_: Throwable) {} }
+        closeBtnView = null
     }
 
     private fun hide() {
         if (panelView != null) {
             panelView?.animate()
                 ?.alpha(0f)
-                ?.translationX((panelView?.width ?: 0).toFloat())
-                ?.setDuration(200)
+                ?.setDuration(150)
                 ?.withEndAction {
                     backdropView?.let { try { wm.removeView(it) } catch (_: Throwable) {} }
                     backdropView = null
@@ -260,6 +316,7 @@ class EdgeOverlayService : Service() {
     
     override fun onDestroy() {
         hide()
+        hideCloseButton()
         edgeView?.let { try { wm.removeView(it) } catch (_: Throwable) {} }
         edgeView = null
         super.onDestroy()

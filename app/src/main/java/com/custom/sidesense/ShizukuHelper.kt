@@ -30,9 +30,17 @@ object ShizukuHelper {
         } catch (t: Throwable) { "ERR: ${t.message}" }
     }
 
-    fun launchFloating(component: String): String = execShell("am start --windowingMode 5 --activity-multiple-task -n $component")
+    fun enableFreeform() {
+        execShell("settings put global enable_freeform_support 1")
+        execShell("settings put global force_resizable_activities 1")
+    }
+
+    fun launchFloating(component: String): String {
+        enableFreeform()
+        // Perintah ini yang biasanya dipakai Mi-FreeForm
+        return execShell("am start --windowingMode 5 -n $component")
+    }
     
-    // Quick Tools via Shizuku
     fun screenOff() = execShell("input keyevent 26")
     fun takeScreenshot() = execShell("input keyevent 120")
 }
