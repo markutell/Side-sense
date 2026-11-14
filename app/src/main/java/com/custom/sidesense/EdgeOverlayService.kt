@@ -74,22 +74,22 @@ class EdgeOverlayService : Service() {
         v.findViewById<View>(R.id.panel_close).setOnClickListener { hide() }
         val apps = AppRepo.getLaunchableApps(this)
         for (a in apps) {
-            val it = LayoutInflater.from(this).inflate(R.layout.item_app, list, false)
-            it.findViewById<ImageView>(R.id.item_icon).setImageDrawable(a.icon)
-            it.findViewById<TextView>(R.id.item_label).text = a.label
-            it.setOnClickListener {
+            val itemView = LayoutInflater.from(this).inflate(R.layout.item_app, list, false)
+            itemView.findViewById<ImageView>(R.id.item_icon).setImageDrawable(a.icon)
+            itemView.findViewById<TextView>(R.id.item_label).text = a.label
+            itemView.setOnClickListener {
                 hide()
                 packageManager.getLaunchIntentForPackage(a.pkg)?.let { li ->
                     li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     try { startActivity(li) } catch (_: Throwable) {}
                 }
             }
-            it.setOnLongClickListener {
+            itemView.setOnLongClickListener {
                 hide()
                 if (ShizukuHelper.hasPermission()) Thread { ShizukuHelper.enterSplitScreen(a.pkg) }.start()
                 true
             }
-            list.addView(it)
+            list.addView(itemView)
         }
         val p = WindowManager.LayoutParams(
             dp(300), WindowManager.LayoutParams.MATCH_PARENT,

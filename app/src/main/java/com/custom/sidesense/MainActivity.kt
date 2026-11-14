@@ -20,10 +20,10 @@ class MainActivity : AppCompatActivity() {
 
     private val notifLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { refresh() }
+    ) { _ -> refresh() }
 
-    private val permListener = Shizuku.OnRequestPermissionResultListener { _, r ->
-        toast(if (r == PackageManager.PERMISSION_GRANTED) "Shizuku granted" else "Shizuku denied")
+    private val permListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+        toast(if (grantResult == PackageManager.PERMISSION_GRANTED) "Shizuku granted" else "Shizuku denied")
         refresh()
     }
     private val binderOk = Shizuku.OnBinderReceivedListener { runOnUiThread { refresh() } }
