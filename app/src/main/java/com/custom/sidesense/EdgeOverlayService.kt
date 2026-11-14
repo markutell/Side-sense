@@ -131,12 +131,9 @@ class EdgeOverlayService : Service() {
                 hide()
                 if (ShizukuHelper.hasPermission()) {
                     Thread { 
-                        val result = ShizukuHelper.launchFloating(app.pkg)
+                        val result = ShizukuHelper.launchFloating(app.component, app.pkg)
                         if (result.startsWith("ERR")) {
-                            // Pake Handler buat nampilin Toast dari dalam Thread
-                            mainHandler.post { 
-                                Toast.makeText(this@EdgeOverlayService, result, Toast.LENGTH_LONG).show() 
-                            }
+                            mainHandler.post { Toast.makeText(this@EdgeOverlayService, result, Toast.LENGTH_LONG).show() }
                         }
                     }.start()
                 } else {

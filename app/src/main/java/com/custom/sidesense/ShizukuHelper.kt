@@ -26,7 +26,6 @@ object ShizukuHelper {
             val t2 = Thread { error = process.errorStream.bufferedReader().use { it.readText() } }
             t1.start(); t2.start(); t1.join(); t2.join()
             process.waitFor(); process.destroy()
-            // Kalau ada error, kita balikin teks error-nya
             if (error.isNotBlank()) "ERR: $error" else output.trim()
         } catch (t: Throwable) { "ERR_SYS: ${t.message}" }
     }
@@ -36,13 +35,15 @@ object ShizukuHelper {
         execShell("settings put global force_resizable_activities 1")
     }
 
-    // Gunakan Package Name (pkg), jangan Activity Name
-    fun launchFloating(pkg: String): String {
+    fun launchFloating(component: String, pkg: String): String {
         enableFreeform()
-        // Pakai monkey untuk nge-launch (lebih tahan banting daripada am start -n)
-        // Lalu tembak pakai multiple-task + bounds
-        val cmd = "am start --windowingMode 5 --activity-multiple-task --bounds 150,300,850,1200 -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p $pkg"
-        return execShell(cmd)
+        
+        // 1. Bersihin task lama
+        execShell("am force-stop $pkg")
+        Thread.sleep(150) // Jeda bentar
+        
+        // 2. Tembak murni pakai Component + Freeform, tanpa parameter ribet
+        return execShell("am start --windowingMode 5 --activity-multiple-task -n $component")
     }
     
     fun screenOff() = execShell("input keyevent 26")
