@@ -37,13 +37,10 @@ object ShizukuHelper {
 
     fun launchFloating(component: String, pkg: String): String {
         enableFreeform()
-        
-        // 1. Bersihin task lama
-        execShell("am force-stop $pkg")
-        Thread.sleep(150) // Jeda bentar
-        
-        // 2. Tembak murni pakai Component + Freeform, tanpa parameter ribet
-        return execShell("am start --windowingMode 5 --activity-multiple-task -n $component")
+        // Paksa pakai cmd activity + windowingMode freeform
+        // (Kita coba tanpa bounds dulu biar sistem yang nentuin ukuran default)
+        val cmd = "cmd activity start-activity --windowingMode 5 --activity-new-task -n $component"
+        return execShell(cmd)
     }
     
     fun screenOff() = execShell("input keyevent 26")
