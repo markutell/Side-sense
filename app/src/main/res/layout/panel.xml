@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:background="@drawable/panel_bg"
+    android:padding="12dp" android:layout_margin="8dp">
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:gravity="center_vertical" android:layout_marginBottom="8dp">
+        <TextView android:id="@+id/panel_title" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Apps" android:textStyle="bold" android:textSize="16sp" android:textColor="#FFFFFF"/>
+        <TextView android:id="@+id/panel_close" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="X" android:textSize="20sp"
+            android:padding="4dp" android:textColor="#FFFFFF"/>
+    </LinearLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
+        <LinearLayout android:id="@+id/panel_list" android:orientation="vertical"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    </ScrollView>
+</LinearLayout>
