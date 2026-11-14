@@ -131,9 +131,9 @@ class EdgeOverlayService : Service() {
             onClick = { app -> 
                 hide()
                 if (ShizukuHelper.hasPermission()) {
+                    // Panggil pake app.component
                     Thread { ShizukuHelper.launchFloating(app.component) }.start()
                     Toast.makeText(this, "Membuka Floating...", Toast.LENGTH_SHORT).show()
-                    // Munculin tombol Close melayang
                     showCloseButton(app.pkg)
                 } else {
                     packageManager.getLaunchIntentForPackage(app.pkg)?.let { li ->
@@ -277,7 +277,6 @@ class EdgeOverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    // Cek apakah cuma di-tap, bukan digeser
                     if (abs(e.rawX - touchX) < dp(10) && abs(e.rawY - touchY) < dp(10)) {
                         hideCloseButton()
                         Thread { ShizukuHelper.execShell("am force-stop $pkg") }.start()
