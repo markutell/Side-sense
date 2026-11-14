@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -16,12 +15,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlin.math.abs
 
 class EdgeOverlayService : Service() {
     companion object {
@@ -32,7 +29,6 @@ class EdgeOverlayService : Service() {
     private var edgeView: View? = null
     private var panelView: View? = null
     private var backdropView: View? = null
-    private var closeBtnView: View? = null
 
     override fun onBind(i: Intent?): IBinder? = null
     override fun onCreate() {
@@ -131,10 +127,9 @@ class EdgeOverlayService : Service() {
             onClick = { app -> 
                 hide()
                 if (ShizukuHelper.hasPermission()) {
-                    // Panggil pake app.component
-                    Thread { ShizukuHelper.launchFloating(app.component) }.start()
+                    // Panggil fungsi dengan 2 parameter: component & package
+                    Thread { ShizukuHelper.launchFloating(app.component, app.pkg) }.start()
                     Toast.makeText(this, "Membuka Floating...", Toast.LENGTH_SHORT).show()
-                    showCloseButton(app.pkg)
                 } else {
                     packageManager.getLaunchIntentForPackage(app.pkg)?.let { li ->
                         li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -230,70 +225,6 @@ class EdgeOverlayService : Service() {
         } catch (_: Throwable) {}
     }
 
-    private fun showCloseButton(pkg: String) {
-        hideCloseButton()
-        val btn = TextView(this).apply {
-            text = "✕"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 22f
-            gravity = Gravity.CENTER
-            
-            val bg = GradientDrawable()
-            bg.shape = GradientDrawable.OVAL
-            bg.setColor(0xCCFF0000.toInt())
-            bg.setStroke(dp(2), 0xFFFFFFFF.toInt())
-            background = bg
-        }
-        
-        val params = WindowManager.LayoutParams(
-            dp(50), dp(50),
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = dp(20)
-            y = dp(100)
-        }
-        
-        var initX = 0
-        var initY = 0
-        var touchX = 0f
-        var touchY = 0f
-        
-        btn.setOnTouchListener { v, e ->
-            when(e.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    initX = params.x
-                    initY = params.y
-                    touchX = e.rawX
-                    touchY = e.rawY
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    params.x = initX + (e.rawX - touchX).toInt()
-                    params.y = initY + (e.rawY - touchY).toInt()
-                    try { wm.updateViewLayout(v, params) } catch (_: Throwable) {}
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (abs(e.rawX - touchX) < dp(10) && abs(e.rawY - touchY) < dp(10)) {
-                        hideCloseButton()
-                        Thread { ShizukuHelper.execShell("am force-stop $pkg") }.start()
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
-        try { wm.addView(btn, params); closeBtnView = btn } catch (_: Throwable) {}
-    }
-
-    private fun hideCloseButton() {
-        closeBtnView?.let { try { wm.removeView(it) } catch (_: Throwable) {} }
-        closeBtnView = null
-    }
-
     private fun hide() {
         if (panelView != null) {
             panelView?.animate()
@@ -315,7 +246,6 @@ class EdgeOverlayService : Service() {
     
     override fun onDestroy() {
         hide()
-        hideCloseButton()
         edgeView?.let { try { wm.removeView(it) } catch (_: Throwable) {} }
         edgeView = null
         super.onDestroy()
