@@ -21,9 +21,7 @@ object ShizukuHelper {
             val output = process.inputStream.bufferedReader().readText()
             process.waitFor()
             output.contains("uid=0")
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     }
 
     fun execShell(cmd: String): String {
@@ -50,9 +48,7 @@ object ShizukuHelper {
                 t1.start(); t2.start(); t1.join(); t2.join()
                 process.waitFor(); process.destroy()
                 if (error.isNotBlank()) "ERR_SHIZUKU: $error" else output.trim()
-            } catch (t: Throwable) {
-                "ERR_SYS: ${t.message}"
-            }
+            } catch (t: Throwable) { "ERR_SYS: ${t.message}" }
         }
         return "ERR: Root mati & Shizuku belum diizinkan"
     }
@@ -65,12 +61,8 @@ object ShizukuHelper {
     fun launchFloating(component: String, pkg: String): String {
         enableFreeform()
         
-        // Bersihin task lama dulu pake root
-        execShell("am force-stop $pkg")
-        Thread.sleep(300)
-        
-        // Tembak pakai am start (tanpa --bounds biar gak error)
-        val cmd = "am start --windowingMode 5 --activity-multiple-task -n $component"
+        // Hapus force-stop, tambahkan --user current
+        val cmd = "am start --windowingMode 5 --activity-new-task --user current -n $component"
         return execShell(cmd)
     }
     
